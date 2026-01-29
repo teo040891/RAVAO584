@@ -2,7 +2,8 @@
 // CẤU HÌNH
 // ===============================
 // Dán URL Web App Google Apps Script sau khi Deploy (kết thúc bằng /exec)
-const API_BASE = "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLjaDoaEcmVlXAN1u4oHCzaXZP4aHgn8tzuP54rWMvHHwN7P7BlJ-ctuiAwMKqMjK_nHsXLeuBworOrVlNn78AeqpoGPJmbq_BonL4CyGcNcTaOnAwWDTwzC22o07pt37ZA9jTb1WD2bg9sj3Atbq9xXARmUbaPpvzfE3m-IRJXxTCd0sO6YACRKAK4RUc1CAQjxgRP-y8c3Mmw2A4yASfpmd3kHvJzcPsl9NfXT_zmRJUozOCoiP_wvE-S1SC6dVtHKo8bGCxQNwb2NvviquM7z7jhtTg&lib=M6GjJHZtZRR9FsjQjxu768AoUp9UuHMYn";
+// Khuyên dùng domain script.googleusercontent.com để ổn định hơn khi gọi từ GitHub Pages
+const API_BASE = "https://script.googleusercontent.com/macros/s/AKfycbwmaFbYYUzW2gZfdbOTqGvtiADsB7wq87UXV_KZQRXc5QeF7BPSFt1PYAsNONtKFawX/exec";
 
 // Polling realtime (ms) – có thể đổi tại đây
 const POLL_INTERVAL_MS = 2000;
@@ -23,34 +24,56 @@ function clearAuth(){ localStorage.removeItem("token"); localStorage.removeItem(
 function setUser(u){ localStorage.setItem("user", u); }
 function getUser(){ return localStorage.getItem("user") || ""; }
 
+// ===============================
+// API HELPERS (CORS-SAFE)
+// ===============================
+// Tránh CORS preflight bằng cách:
+// - KHÔNG dùng header Authorization
+// - KHÔNG dùng Content-Type: application/json (đổi sang text/plain)
+// - token sẽ được gửi kèm vào query/body
+
 function apiUrl(action){
-  const u = new URL(API_BASE);
+  // Nếu bạn lỡ dán script.google.com thì tự chuyển sang googleusercontent cho an toàn
+  const fixedBase = (API_BASE || "").replace("https://script.google.com", "https://script.googleusercontent.com");
+  const u = new URL(fixedBase);
   u.searchParams.set("action", action);
   return u.toString();
 }
 
-async function apiGet(action, params={}, auth=false){
+async function apiGet(action, params = {}, auth = false){
   const u = new URL(apiUrl(action));
-  Object.entries(params).forEach(([k,v])=>u.searchParams.set(k, v));
-  const headers = {};
+  Object.entries(params).forEach(([k,v]) => u.searchParams.set(k, v));
+
+  // ✅ Không dùng Authorization header (tránh preflight)
   if (auth){
     const t = getToken();
-    if (t) headers["Authorization"] = "Bearer " + t;
+    if (t) u.searchParams.set("token", t);
   }
-  const res = await fetch(u.toString(), { method:"GET", headers });
+
+  const res = await fetch(u.toString(), { method:"GET" });
   return await res.json();
 }
 
-async function apiPost(action, body={}, auth=false){
-  const headers = { "Content-Type":"application/json" };
+async function apiPost(action, body = {}, auth = false){
+  // ✅ Không dùng Authorization header (tránh preflight)
+  // ✅ Không dùng application/json (tránh preflight)
+  // -> gửi chuỗi JSON nhưng Content-Type là text/plain
   if (auth){
     const t = getToken();
-    if (t) headers["Authorization"] = "Bearer " + t;
+    if (t) body.token = t;
   }
-  const res = await fetch(apiUrl(action), { method:"POST", headers, body: JSON.stringify(body) });
+
+  const res = await fetch(apiUrl(action), {
+    method:"POST",
+    headers: { "Content-Type":"text/plain;charset=utf-8" },
+    body: JSON.stringify(body)
+  });
   return await res.json();
 }
 
+// ===============================
+// QUERY STRING / HTML UTILS
+// ===============================
 function qs(name){
   const u = new URL(window.location.href);
   return u.searchParams.get(name) || "";
@@ -77,7 +100,9 @@ function requireAuth(allowedRoles){
   }
 }
 
-// Simple table render
+// ===============================
+// TABLE RENDER
+// ===============================
 function renderTable(el, rows, columns){
   if (!el) return;
   const thead = "<thead><tr>" + columns.map(c=>`<th>${escapeHtml(c.label)}</th>`).join("") + "</tr></thead>";
