@@ -2,7 +2,7 @@
 // CẤU HÌNH
 // ===============================
 // Dán URL Web App Google Apps Script sau khi Deploy (kết thúc bằng /exec)
-const API_BASE = "PASTE_YOUR_APPS_SCRIPT_WEBAPP_URL_HERE";
+const API_BASE = "https://script.google.com/macros/s/AKfycbwmaFbYYUzW2gZfdbOTqGvtiADsB7wq87UXV_KZQRXc5QeF7BPSFt1PYAsNONtKFawX/exec";
 
 // Polling realtime (ms) – có thể đổi tại đây
 const POLL_INTERVAL_MS = 2000;
