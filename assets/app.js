@@ -2,7 +2,7 @@
 // CẤU HÌNH
 // ===============================
 // Dán URL Web App Google Apps Script sau khi Deploy (kết thúc bằng /exec)
-const API_BASE = "https://script.google.com/macros/s/AKfycbwmaFbYYUzW2gZfdbOTqGvtiADsB7wq87UXV_KZQRXc5QeF7BPSFt1PYAsNONtKFawX/exec";
+const API_BASE = "https://script.googleusercontent.com/macros/echo?user_content_key=AehSKLjaDoaEcmVlXAN1u4oHCzaXZP4aHgn8tzuP54rWMvHHwN7P7BlJ-ctuiAwMKqMjK_nHsXLeuBworOrVlNn78AeqpoGPJmbq_BonL4CyGcNcTaOnAwWDTwzC22o07pt37ZA9jTb1WD2bg9sj3Atbq9xXARmUbaPpvzfE3m-IRJXxTCd0sO6YACRKAK4RUc1CAQjxgRP-y8c3Mmw2A4yASfpmd3kHvJzcPsl9NfXT_zmRJUozOCoiP_wvE-S1SC6dVtHKo8bGCxQNwb2NvviquM7z7jhtTg&lib=M6GjJHZtZRR9FsjQjxu768AoUp9UuHMYn";
 
 // Polling realtime (ms) – có thể đổi tại đây
 const POLL_INTERVAL_MS = 2000;
