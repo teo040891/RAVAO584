@@ -3,7 +3,7 @@
 // ===============================
 // Dán URL Web App Google Apps Script sau khi Deploy (kết thúc bằng /exec)
 // Khuyên dùng domain script.googleusercontent.com để ổn định hơn khi gọi từ GitHub Pages
-const API_BASE = "https://script.googleusercontent.com/macros/s/AKfycbwmaFbYYUzW2gZfdbOTqGvtiADsB7wq87UXV_KZQRXc5QeF7BPSFt1PYAsNONtKFawX/exec";
+const API_BASE = "ravao584.teo040891.workers.dev";
 
 // Polling realtime (ms) – có thể đổi tại đây
 const POLL_INTERVAL_MS = 2000;
