@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trực ban</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<header>
+  <div class="title">Trực ban (Realtime)</div>
+  <div class="right">
+    <span id="who" class="badge"></span>
+    <button class="secondary" id="btnLogout" style="display:none">Đăng xuất</button>
+  </div>
+</header>
+<div class="container">
+
+<div class="card">
+  <h2 style="margin:0 0 8px 0;">Bảng trực ban (thời gian thực)</h2>
+  <small>Nhận phiếu PENDING, duyệt mời vào, theo dõi IN/OUT.</small>
+  <hr/>
+  <div class="row">
+    <div class="col">
+      <div><b>Trạng thái kết nối:</b> <span id="conn">-</span></div>
+      <div><b>Lần cập nhật:</b> <span id="last">-</span></div>
+    </div>
+    <div class="col">
+      <div class="row" style="justify-content:flex-end">
+        <button class="secondary" id="btnRefresh">Làm mới</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h3 style="margin:0 0 8px 0;">Chờ duyệt (PENDING) <span id="pendingCount" class="badge pending">0</span></h3>
+  <table id="tblPending"></table>
+</div>
+
+<div class="card">
+  <h3 style="margin:0 0 8px 0;">Đang trong đơn vị (IN)</h3>
+  <table id="tblIn"></table>
+</div>
+
+<div class="card">
+  <h3 style="margin:0 0 8px 0;">Nhật ký mới nhất</h3>
+  <table id="tblLog"></table>
+</div>
+
+</div>
+<div id="toast" class="toast"></div>
+<script src="assets/app.js"></script>
+
+<script>
+(function(){
+  requireAuth(["duty","admin"]);
+  $("who").textContent = (getRole()||"") + " • " + (getUser()||"");
+  $("btnLogout").style.display = "inline-block";
+  $("btnLogout").addEventListener("click", ()=>{ clearAuth(); window.location.href="index.html"; });
+
+  let since = "";
+  let all = {}; // visit_id -> row
+
+  function badge(status){
+    const s = String(status||"");
+    if(s==="PENDING") return "pending";
+    if(s==="IN") return "in";
+    if(s==="OUT") return "out";
+    if(s==="REJECTED") return "rejected";
+    return "";
+  }
+
+  function normalizeRow(r){
+    // Ensure fields exist
+    return {
+      visit_id: r.visit_id||"",
+      gate: r.gate||"",
+      fullname: r.fullname||"",
+      birth_year: r.birth_year||"",
+      cccd: r.cccd||"",
+      address: r.address||"",
+      soldier_name: r.soldier_name||"",
+      relationship: r.relationship||"",
+      status: r.status||"",
+      created_at: r.created_at||"",
+      approved_at: r.approved_at||"",
+      approved_by: r.approved_by||"",
+      checkout_at: r.checkout_at||"",
+      checkout_by: r.checkout_by||"",
+      reject_reason: r.reject_reason||"",
+      last_updated_at: r.last_updated_at||""
+    };
+  }
+
+  async function approve(id){
+    const r = await apiPost("duty_approve", { visit_id:id }, true);
+    if(!r.ok) toast(r.error||"Không duyệt được.");
+  }
+  async function reject(id){
+    const reason = prompt("Nhập lý do từ chối (tuỳ chọn):") || "";
+    const r = await apiPost("duty_reject", { visit_id:id, reason }, true);
+    if(!r.ok) toast(r.error||"Không từ chối được.");
+  }
+  async function manualCheckout(id){
+    const ok = confirm("Checkout thủ công cho mã phiếu: " + id + " ?");
+    if(!ok) return;
+    const r = await apiPost("duty_manual_checkout", { visit_id:id }, true);
+    if(!r.ok) toast(r.error||"Không checkout được.");
+  }
+
+  function render(){
+    const rows = Object.values(all);
+    const pending = rows.filter(r=>r.status==="PENDING").sort((a,b)=> (b.created_at||"").localeCompare(a.created_at||""));
+    const ins = rows.filter(r=>r.status==="IN").sort((a,b)=> (b.approved_at||"").localeCompare(a.approved_at||""));
+    const log = rows.sort((a,b)=> (b.last_updated_at||"").localeCompare(a.last_updated_at||"")).slice(0, 40);
+
+    $("pendingCount").textContent = String(pending.length);
+
+    // Pending table with action buttons
+    const tblP = $("tblPending");
+    tblP.innerHTML = `
+      <thead><tr>
+        <th>Thời gian</th><th>Khách</th><th>CCCD</th><th>Địa chỉ</th><th>Quân nhân</th><th>Quan hệ</th><th>Cổng</th><th>Hành động</th>
+      </tr></thead>
+      <tbody>
+        ${pending.map(r=>`
+          <tr>
+            <td>${escapeHtml(fmtTime(r.created_at))}</td>
+            <td>${escapeHtml(r.fullname)}<br/><small>${escapeHtml(String(r.birth_year||""))}</small></td>
+            <td>${escapeHtml(r.cccd)}</td>
+            <td>${escapeHtml(r.address)}</td>
+            <td>${escapeHtml(r.soldier_name)}</td>
+            <td>${escapeHtml(r.relationship)}</td>
+            <td>${escapeHtml(r.gate)}</td>
+            <td>
+              <button class="ok" data-a="approve" data-id="${escapeHtml(r.visit_id)}">CHẤP NHẬN</button>
+              <button class="danger" data-a="reject" data-id="${escapeHtml(r.visit_id)}">TỪ CHỐI</button>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    `;
+
+    // IN table
+    const tblI = $("tblIn");
+    tblI.innerHTML = `
+      <thead><tr>
+        <th>Vào lúc</th><th>Khách</th><th>CCCD</th><th>Quân nhân</th><th>Cổng</th><th>Checkout</th>
+      </tr></thead>
+      <tbody>
+        ${ins.map(r=>`
+          <tr>
+            <td>${escapeHtml(fmtTime(r.approved_at))}<br/><small>${escapeHtml(r.approved_by||"")}</small></td>
+            <td>${escapeHtml(r.fullname)}</td>
+            <td>${escapeHtml(r.cccd)}</td>
+            <td>${escapeHtml(r.soldier_name)}</td>
+            <td>${escapeHtml(r.gate)}</td>
+            <td>
+              <button class="secondary" data-a="manual_checkout" data-id="${escapeHtml(r.visit_id)}">Checkout thủ công</button>
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    `;
+
+    // Log table
+    renderTable($("tblLog"), log, [
+      {label:"Cập nhật", value:r=>fmtTime(r.last_updated_at)},
+      {label:"Mã phiếu", value:"visit_id"},
+      {label:"Trạng thái", value:r=>r.status},
+      {label:"Khách", value:"fullname"},
+      {label:"Quân nhân", value:"soldier_name"},
+      {label:"Cổng", value:"gate"},
+      {label:"Ghi chú", value:r=> (r.reject_reason||"") }
+    ]);
+
+    // bind action clicks
+    tblP.querySelectorAll("button[data-a]").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const a = btn.getAttribute("data-a");
+        const id = btn.getAttribute("data-id");
+        if(a==="approve") await approve(id);
+        if(a==="reject") await reject(id);
+        await refreshOnce(); // refresh after action
+      });
+    });
+    tblI.querySelectorAll("button[data-a]").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const id = btn.getAttribute("data-id");
+        await manualCheckout(id);
+        await refreshOnce();
+      });
+    });
+  }
+
+  async function refreshOnce(){
+    try{
+      const r = await apiGet("realtime", { since }, true);
+      if(!r.ok) throw new Error(r.error||"realtime error");
+      $("conn").textContent = "OK";
+      $("last").textContent = fmtTime(r.server_time || nowISO());
+
+      (r.items||[]).forEach(item=>{
+        const row = normalizeRow(item);
+        all[row.visit_id] = row;
+      });
+      since = r.server_time || nowISO();
+      render();
+
+      // notify if pending increased
+      const pendingCount = Object.values(all).filter(x=>x.status==="PENDING").length;
+      if(window.__lastPendingCount != null && pendingCount > window.__lastPendingCount){
+        toast("Có khách mới chờ duyệt!");
+      }
+      window.__lastPendingCount = pendingCount;
+
+    }catch(e){
+      $("conn").textContent = "Lỗi";
+      // do not spam alert
+    }
+  }
+
+  $("btnRefresh").addEventListener("click", refreshOnce);
+
+  // initial load: fetch latest snapshot
+  (async ()=>{
+    const snap = await apiGet("snapshot", {}, true);
+    if(snap.ok){
+      all = {};
+      (snap.items||[]).forEach(it=>{ const r = normalizeRow(it); all[r.visit_id]=r; });
+      since = snap.server_time || nowISO();
+      render();
+    }
+    await refreshOnce();
+    setInterval(refreshOnce, POLL_INTERVAL_MS);
+  })();
+
+})();
+</script>
+
+</body>
+</html>

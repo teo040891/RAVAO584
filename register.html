@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Đăng ký thăm</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<header>
+  <div class="title">Đăng ký thăm thân (QR vào)</div>
+  <div class="right">
+    <span id="who" class="badge"></span>
+    <button class="secondary" id="btnLogout" style="display:none">Đăng xuất</button>
+  </div>
+</header>
+<div class="container">
+
+<div class="card">
+  <h2 style="margin:0 0 8px 0;">Đăng ký thăm thân</h2>
+  <small>Quét QR tại cổng. Vui lòng điền đầy đủ thông tin.</small>
+  <hr/>
+  <div class="row">
+    <div class="col">
+      <label>Họ và tên</label>
+      <input id="fullname" />
+    </div>
+    <div class="col">
+      <label>Năm sinh</label>
+      <input id="birth_year" type="number" placeholder="vd: 1985" />
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <label>Căn cước công dân (CCCD)</label>
+      <input id="cccd" inputmode="numeric" placeholder="12 số..." />
+    </div>
+    <div class="col">
+      <label>Địa chỉ</label>
+      <input id="address" />
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col">
+      <label>Tên quân nhân được thăm (gợi ý theo biên chế)</label>
+      <input id="soldier_name" list="soldier_list" placeholder="Gõ 2-3 ký tự..." />
+      <datalist id="soldier_list"></datalist>
+      <small id="soldier_hint"></small>
+    </div>
+    <div class="col">
+      <label>Quan hệ</label>
+      <input id="relationship" placeholder="vd: Bố/Mẹ/Vợ/Chồng/Anh/Chị..." />
+    </div>
+  </div>
+
+  <div style="margin-top:12px;">
+    <button id="btnSubmit">Xác nhận đăng ký</button>
+  </div>
+
+  <div style="margin-top:10px;">
+    <small><b>Ghi chú:</b> Sau khi đăng ký, vui lòng chờ trực ban duyệt để vào đơn vị.</small>
+  </div>
+</div>
+
+<div class="card">
+  <h3 style="margin:0 0 8px 0;">Trạng thái</h3>
+  <div id="result">Chưa gửi đăng ký.</div>
+</div>
+
+</div>
+<div id="toast" class="toast"></div>
+<script src="assets/app.js"></script>
+
+<script>
+(function(){
+  $("who").textContent = "Khách đăng ký";
+  $("btnLogout").style.display = "none";
+
+  const gate = qs("gate") || "cong1";
+
+  // Autocomplete soldier name
+  let suggestTimer = null;
+  $("soldier_name").addEventListener("input", ()=>{
+    const q = $("soldier_name").value.trim();
+    clearTimeout(suggestTimer);
+    if(q.length < 2) return;
+    suggestTimer = setTimeout(async ()=>{
+      const r = await apiGet("public_personnel_suggest", { q }, false);
+      if(!r.ok) return;
+      const dl = $("soldier_list");
+      dl.innerHTML = (r.items||[]).map(it => `<option value="${escapeHtml(it.soldier_name)}"></option>`).join("");
+      $("soldier_hint").textContent = (r.items && r.items[0] && r.items[0].soldier_unit) ? ("Gợi ý đơn vị: " + r.items[0].soldier_unit) : "";
+    }, 250);
+  });
+
+  function validate(){
+    const fullname = $("fullname").value.trim();
+    const birth_year = $("birth_year").value.trim();
+    const cccd = $("cccd").value.trim();
+    const address = $("address").value.trim();
+    const soldier_name = $("soldier_name").value.trim();
+    const relationship = $("relationship").value.trim();
+
+    if(!fullname || !birth_year || !cccd || !address || !soldier_name || !relationship){
+      return { ok:false, msg:"Vui lòng điền đủ tất cả thông tin." };
+    }
+    if(!/^\d{9,12}$/.test(cccd)){
+      return { ok:false, msg:"CCCD nên là 9–12 chữ số (tuỳ loại). Hãy kiểm tra lại." };
+    }
+    return { ok:true, data:{ gate, fullname, birth_year:Number(birth_year), cccd, address, soldier_name, relationship } };
+  }
+
+  $("btnSubmit").addEventListener("click", async ()=>{
+    const v = validate();
+    if(!v.ok) return toast(v.msg);
+    $("btnSubmit").disabled = true;
+    $("result").innerHTML = "Đang gửi đăng ký...";
+    const r = await apiPost("public_register", v.data, false);
+    $("btnSubmit").disabled = false;
+
+    if(!r.ok){
+      $("result").innerHTML = "<b>Lỗi:</b> " + escapeHtml(r.error || "Không gửi được.");
+      return;
+    }
+
+    $("result").innerHTML =
+      `<div><b>Đã gửi đăng ký.</b></div>
+       <div>Mã phiếu: <code>${escapeHtml(r.visit_id||"")}</code></div>
+       <div>Trạng thái: <span class="badge pending">PENDING</span></div>
+       <div><small>Hãy chờ trực ban duyệt để vào đơn vị.</small></div>`;
+  });
+})();
+</script>
+
+</body>
+</html>

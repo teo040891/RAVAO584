@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Đăng nhập</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<header>
+  <div class="title">Hệ thống đăng ký thăm thân (QR)</div>
+  <div class="right">
+    <span id="who" class="badge"></span>
+    <button class="secondary" id="btnLogout" style="display:none">Đăng xuất</button>
+  </div>
+</header>
+<div class="container">
+
+<div class="card">
+  <h2 style="margin:0 0 8px 0;">Đăng nhập</h2>
+  <small>Hỗ trợ: Google (theo email trong danh sách) và PIN nội bộ.</small>
+  <hr/>
+  <div class="row">
+    <div class="col">
+      <h3 style="margin:0 0 8px 0;">Đăng nhập PIN</h3>
+      <label>Tên đăng nhập</label>
+      <input id="pin_user" placeholder="vd: trucban1" />
+      <label>PIN</label>
+      <input id="pin" placeholder="vd: 123456" type="password" />
+      <div style="margin-top:10px;">
+        <button id="btnPinLogin">Đăng nhập PIN</button>
+      </div>
+      <small>* PIN được kiểm tra ở Apps Script (tab USERS).</small>
+    </div>
+
+    <div class="col">
+      <h3 style="margin:0 0 8px 0;">Đăng nhập Google (đơn giản)</h3>
+      <label>Email</label>
+      <input id="g_email" placeholder="vd: commander@donvi.mil.vn" />
+      <div style="margin-top:10px;">
+        <button id="btnGoogleLogin">Đăng nhập Google</button>
+      </div>
+      <small>
+        Phiên bản này dùng cách đơn giản: chỉ kiểm tra email có trong tab USERS và enabled=TRUE.
+        <br/>Nếu cần xác thực chặt (id_token), xem README để nâng cấp.
+      </small>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h3 style="margin:0 0 8px 0;">Thiết lập nhanh</h3>
+  <ol>
+    <li>Mở <code>assets/app.js</code> và dán URL Web App Apps Script vào <b>API_BASE</b>.</li>
+    <li>Deploy Apps Script (README có hướng dẫn).</li>
+    <li>Upload toàn bộ thư mục <code>github-pages/</code> lên GitHub Pages.</li>
+  </ol>
+</div>
+
+</div>
+<div id="toast" class="toast"></div>
+<script src="assets/app.js"></script>
+
+<script>
+(function(){
+  // Hide header user
+  $("who").textContent = "";
+  $("btnLogout").style.display = "none";
+
+  async function doPin(){
+    const username = $("pin_user").value.trim();
+    const pin = $("pin").value.trim();
+    if(!username || !pin) return toast("Nhập tên đăng nhập và PIN.");
+    const r = await apiPost("auth_login_pin", { username, pin }, false);
+    if(!r.ok) return toast(r.error || "Đăng nhập thất bại.");
+    setToken(r.token); setRole(r.role); setUser(r.user || username);
+    routeByRole(r.role);
+  }
+
+  async function doGoogleSimple(){
+    const email = $("g_email").value.trim();
+    if(!email) return toast("Nhập email.");
+    const r = await apiPost("auth_login_google_simple", { email }, false);
+    if(!r.ok) return toast(r.error || "Đăng nhập thất bại.");
+    setToken(r.token); setRole(r.role); setUser(r.user || email);
+    routeByRole(r.role);
+  }
+
+  function routeByRole(role){
+    if(role === "duty") window.location.href = "duty.html";
+    else if(role === "commander") window.location.href = "commander.html";
+    else if(role === "admin") window.location.href = "admin.html"; // (chưa làm riêng, có thể dùng duty.html)
+    else window.location.href = "commander.html";
+  }
+
+  $("btnPinLogin").addEventListener("click", doPin);
+  $("btnGoogleLogin").addEventListener("click", doGoogleSimple);
+
+  // auto route if already logged in
+  if(getToken() && getRole()){
+    routeByRole(getRole());
+  }
+})();
+</script>
+
+</body>
+</html>

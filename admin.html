@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<header>
+  <div class="title">Admin</div>
+  <div class="right">
+    <span id="who" class="badge"></span>
+    <button class="secondary" id="btnLogout" style="display:none">Đăng xuất</button>
+  </div>
+</header>
+<div class="container">
+
+<div class="card">
+  <h2 style="margin:0 0 8px 0;">Admin</h2>
+  <small>Bản demo: Admin dùng chung màn hình Trực ban. Có thể tách riêng sau.</small>
+  <hr/>
+  <button id="go">Mở màn hình trực ban</button>
+</div>
+
+</div>
+<div id="toast" class="toast"></div>
+<script src="assets/app.js"></script>
+
+<script>
+(function(){
+  requireAuth(["admin"]);
+  $("who").textContent = "admin • " + (getUser()||"");
+  $("btnLogout").style.display = "inline-block";
+  $("btnLogout").addEventListener("click", ()=>{ clearAuth(); window.location.href="index.html"; });
+  $("go").addEventListener("click", ()=>{ window.location.href="duty.html"; });
+})();
+</script>
+
+</body>
+</html>

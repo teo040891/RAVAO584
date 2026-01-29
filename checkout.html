@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Checkout</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<header>
+  <div class="title">Checkout (QR ra)</div>
+  <div class="right">
+    <span id="who" class="badge"></span>
+    <button class="secondary" id="btnLogout" style="display:none">Đăng xuất</button>
+  </div>
+</header>
+<div class="container">
+
+<div class="card">
+  <h2 style="margin:0 0 8px 0;">Xác nhận ra (Checkout)</h2>
+  <small>Quét QR tại cổng ra. Nhập CCCD đầy đủ để xác nhận.</small>
+  <hr/>
+  <label>CCCD</label>
+  <input id="cccd" inputmode="numeric" placeholder="Nhập CCCD..." />
+
+  <div style="margin-top:12px;">
+    <button id="btnCheckout" class="ok">Xác nhận ra</button>
+  </div>
+</div>
+
+<div class="card">
+  <h3 style="margin:0 0 8px 0;">Kết quả</h3>
+  <div id="result">Chưa checkout.</div>
+</div>
+
+</div>
+<div id="toast" class="toast"></div>
+<script src="assets/app.js"></script>
+
+<script>
+(function(){
+  $("who").textContent = "Khách checkout";
+  $("btnLogout").style.display = "none";
+
+  const gate = qs("gate") || "cong1";
+
+  $("btnCheckout").addEventListener("click", async ()=>{
+    const cccd = $("cccd").value.trim();
+    if(!cccd) return toast("Nhập CCCD.");
+    if(!/^\d{9,12}$/.test(cccd)) return toast("CCCD không hợp lệ.");
+
+    $("btnCheckout").disabled = true;
+    $("result").innerHTML = "Đang xử lý checkout...";
+    const r = await apiPost("public_checkout", { gate, cccd }, false);
+    $("btnCheckout").disabled = false;
+
+    if(!r.ok){
+      $("result").innerHTML = "<b>Lỗi:</b> " + escapeHtml(r.error || "Không checkout được.");
+      return;
+    }
+    $("result").innerHTML =
+      `<div><b>Checkout thành công.</b></div>
+       <div>Mã phiếu: <code>${escapeHtml(r.visit_id||"")}</code></div>
+       <div>Thời gian ra: ${escapeHtml(fmtTime(r.checkout_at||""))}</div>
+       <div>Trạng thái: <span class="badge out">OUT</span></div>`;
+  });
+})();
+</script>
+
+</body>
+</html>
